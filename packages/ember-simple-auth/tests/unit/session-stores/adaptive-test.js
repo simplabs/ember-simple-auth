@@ -90,17 +90,19 @@ describe('AdaptiveStore', () => {
         store.persist({ key: 'value' });
         store.setProperties({
           cookieName:           'test:session',
-          cookieExpirationTime: 60
+          cookieExpirationTime: 60,
+          sameSite:             'Strict',
         });
       });
 
       expect(cookieService.write).to.have.been.calledWith(
         'test:session-expiration_time',
         60,
-        sinon.match(function({ domain, expires, path, secure }) {
+        sinon.match(function({ domain, expires, path, secure, sameSite }) {
           return domain === null &&
             path === '/' &&
-            secure === false && expires >= new Date(now.getTime() + 60 * 1000);
+            secure === false && expires >= new Date(now.getTime() + 60 * 1000) &&
+            sameSite === 'Strict';
         })
       );
     });
