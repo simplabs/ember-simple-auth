@@ -173,11 +173,20 @@ export default BaseStore.extend({
 
   init() {
     this._super(...arguments);
-
     let owner = getOwner(this);
     if (owner && !this.hasOwnProperty('_fastboot')) {
       this._fastboot = owner.lookup('service:fastboot');
     }
+  },
+
+  _initialize(options) {
+    const clonedOptions = Object.assign({}, options);
+    if (clonedOptions.cookieName) {
+      this.set('_cookieName', clonedOptions.cookieName);
+    }
+
+    delete clonedOptions.cookieName;
+    this.setProperties(clonedOptions);
 
     let cachedExpirationTime = this._read(`${this.get('cookieName')}-expiration_time`);
     if (cachedExpirationTime) {

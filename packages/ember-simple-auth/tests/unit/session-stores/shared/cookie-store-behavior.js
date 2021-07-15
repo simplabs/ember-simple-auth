@@ -23,60 +23,48 @@ registerWarnHandler((message, options, next) => {
 
 export default function(options) {
   let sinon;
-  let store;
-  let createStore;
   let renew;
   let sync;
-  let cookieService;
   let spyRewriteCookieMethod;
 
   // eslint-disable-next-line mocha/no-top-level-hooks
   beforeEach(function() {
     sinon = sinonjs.createSandbox();
-    createStore = options.createStore;
     renew = options.renew;
     sync = options.sync;
-    cookieService = FakeCookieService.create();
-    sinon.spy(cookieService, 'read');
-    sinon.spy(cookieService, 'write');
-    store = createStore(cookieService);
     spyRewriteCookieMethod = options.spyRewriteCookieMethod;
   });
 
   // eslint-disable-next-line mocha/no-top-level-hooks
   afterEach(function() {
     sinon.restore();
-    store.clear();
   });
 
   describe('#persist', function() {
+    let store;
     beforeEach(function() {
       warnings = [];
+      store = options.store(sinon, this.owner);
     });
 
-    it('respects the configured cookieName', function() {
-      let store;
-      run(() => {
-        store = createStore(cookieService, { cookieName: 'test-session' });
-      });
-      store.persist({ key: 'value' });
+    it('respects the configured cookieName', async function() {
+      let cookieService = store.get('_cookies');
+      await store.persist({ key: 'value' });
 
       expect(cookieService.write).to.have.been.calledWith(
-        'test-session',
+        'test:session',
         JSON.stringify({ key: 'value' }),
         { domain: null, expires: null, path: '/', sameSite: null, secure: false }
       );
     });
 
-    it('respects the configured cookieDomain', function() {
-      let store;
+    it('respects the configured cookieDomain', async function() {
+      let cookieService = store.get('_cookies');
       run(() => {
-        store = createStore(cookieService, {
-          cookieName: 'session-cookie-domain',
-          cookieDomain: 'example.com'
-        });
-        store.persist({ key: 'value' });
+        store.set('cookieName', 'session-cookie-domain');
+        store.set('cookieDomain', 'example.com');
       });
+      await store.persist({ key: 'value' });
 
       expect(cookieService.write).to.have.been.calledWith(
         'session-cookie-domain',
@@ -85,16 +73,14 @@ export default function(options) {
       );
     });
 
-    it('respects the configured cookiePath', function() {
-      let store;
+    it('respects the configured cookiePath', async function() {
       run(() => {
-        store = createStore(cookieService, {
-          cookieName: 'session-cookie-domain',
-          cookieDomain: 'example.com',
-          cookiePath: '/hello-world'
-        });
-        store.persist({ key: 'value' });
+        store.set('cookieName', 'session-cookie-domain');
+        store.set('cookieDomain', 'example.com');
+        store.set('cookiePath', '/hello-world');
       });
+      let cookieService = store.get('_cookies');
+      await store.persist({ key: 'value' });
 
       expect(cookieService.write).to.have.been.calledWith(
         'session-cookie-domain',
@@ -103,17 +89,14 @@ export default function(options) {
       );
     });
 
-    it('respects the configured sameSite', function() {
-      let store;
+    it('respects the configured sameSite', async function() {
       run(() => {
-        store = createStore(cookieService, {
-          cookieName: 'session-cookie-domain',
-          cookieDomain: 'example.com',
-          sameSite: 'Strict'
-        });
-        store.persist({ key: 'value' });
+        store.set('cookieName', 'session-cookie-domain');
+        store.set('cookieDomain', 'example.com');
+        store.set('sameSite', 'Strict');
       });
-
+      let cookieService = store.get('_cookies');
+      await store.persist({ key: 'value' });
       expect(cookieService.write).to.have.been.calledWith(
         'session-cookie-domain',
         JSON.stringify({ key: 'value' }),
@@ -121,14 +104,14 @@ export default function(options) {
       );
     });
 
-    it('sends a warning when `cookieExpirationTime` is less than 90 seconds', function(done) {
+    it('sends a warning when `cookieExpirationTime` is less than 90 seconds', async function(done) {
       run(() => {
-        createStore(cookieService, {
-          cookieName: 'session-cookie-domain',
-          cookieDomain: 'example.com',
-          cookieExpirationTime: 60
-        });
-
+        store.set('cookieName', 'session-cookie-domain');
+        store.set('cookieDomain', 'example.com');
+        store.set('cookieExpirationTime', 60);
+      });
+      await store.persist({ key: 'value' });
+      run(() => {
         expect(warnings).to.have.length(1);
         expect(warnings[0]).to.equal('The recommended minimum value for `cookieExpirationTime` is 90 seconds. If your value is less than that, the cookie may expire before its expiration time is extended (expiration time is extended every 60 seconds).');
 
@@ -139,13 +122,16 @@ export default function(options) {
 
   describe('#renew', function() {
     let now = new Date();
+    let cookieService;
+    let store;
 
     beforeEach(async function() {
-      store = createStore(cookieService, {
-        cookieName:           'test-session',
-        cookieExpirationTime: 60
+      store = options.store(sinon, this.owner, {
+        cookieName: 'test-session',
+        cookieExpirationTime: 60,
       });
-      store.persist({ key: 'value' });
+      cookieService = store.get('_cookies');
+      await store.persist({ key: 'value' });
       await renew(store);
     });
 
@@ -164,13 +150,17 @@ export default function(options) {
 
   describe('the "sessionDataUpdated" event', function() {
     let triggered;
+    let store;
 
-    beforeEach(function() {
+    beforeEach(async function() {
+      store = options.store(sinon, this.owner, {
+        cookieName: 'ember_simple_auth-session',
+      });
       triggered = false;
-      store.persist({ key: 'value' });
       store.one('sessionDataUpdated', () => {
         triggered = true;
       });
+      await store.persist({ key: 'value' });
     });
 
     it('is not triggered when the cookie has not actually changed', function(done) {
@@ -215,13 +205,12 @@ export default function(options) {
 
     beforeEach(function() {
       cookieService = FakeCookieService.create();
-      store = createStore(cookieService, {
-        cookieName: 'session-foo',
-        cookieExpirationTime: 1000
+      store = options.store(sinon, this.owner, {
+        _cookieName: 'session-foo',
+        _cookieExpirationTime: 1000
       });
       cookieService = store.get('_cookies') || store.get('_store._cookies');
-      cookieSpy = spyRewriteCookieMethod(store);
-      sinon.spy(cookieService, 'write');
+      cookieSpy = spyRewriteCookieMethod(sinon, store);
       sinon.spy(cookieService, 'clear');
     });
 
@@ -231,11 +220,11 @@ export default function(options) {
       cookieSpy.restore();
     });
 
-    it('deletes the old cookie and writes a new one when name property changes', function() {
+    it('deletes the old cookie and writes a new one when name property changes', async function() {
       run(() => {
-        store.persist({ key: 'value' });
         store.set('cookieName', 'session-bar');
       });
+      await store.persist({ key: 'value' });
 
       expect(cookieService.clear).to.have.been.calledWith('session-foo');
 
@@ -264,19 +253,20 @@ export default function(options) {
       );
     });
 
-    it('deletes the old cookie and writes a new one when domain property changes', function() {
-      let defaultName = 'ember_simple_auth-session';
+    it('deletes the old cookie and writes a new one when domain property changes', async function() {
+      let defaultName = 'session-foo';
       run(() => {
-        store.persist({ key: 'value' });
         store.set('cookieDomain', 'example.com');
+        store.set('cookieName', 'session-bar');
       });
+      await store.persist({ key: 'value' });
 
       expect(cookieService.clear).to.have.been.calledWith(defaultName);
 
       expect(cookieService.clear).to.have.been.calledWith(`${defaultName}-expiration_time`);
 
       expect(cookieService.write).to.have.been.calledWith(
-        'session-foo',
+        'session-bar',
         JSON.stringify({ key: 'value' }),
         sinon.match(function({ domain, expires, path, secure }) {
           return domain === 'example.com' &&
@@ -287,20 +277,21 @@ export default function(options) {
       );
     });
 
-    it('deletes the old cookie and writes a new one when expiration property changes', function() {
-      let defaultName = 'ember_simple_auth-session';
+    it('deletes the old cookie and writes a new one when expiration property changes', async function() {
+      let defaultName = 'session-foo';
       let expirationTime = 180;
       run(() => {
-        store.persist({ key: 'value' });
         store.set('cookieExpirationTime', expirationTime);
+        store.set('cookieName', 'session-bar');
       });
+      await store.persist({ key: 'value' });
 
       expect(cookieService.clear).to.have.been.calledWith(defaultName);
 
       expect(cookieService.clear).to.have.been.calledWith(`${defaultName}-expiration_time`);
 
       expect(cookieService.write).to.have.been.calledWith(
-        'session-foo',
+        'session-bar',
         JSON.stringify({ key: 'value' }),
         sinon.match(function({ domain, expires, path, secure }) {
           return domain === null &&
@@ -311,7 +302,8 @@ export default function(options) {
       );
     });
 
-    it('clears cached expiration times when setting expiration to null', function() {
+    // eslint-disable-next-line require-await
+    it('clears cached expiration times when setting expiration to null', async function() {
       run(() => {
         store.set('cookieExpirationTime', null);
       });
@@ -333,18 +325,21 @@ export default function(options) {
   });
 
   describe('#init', function() {
+    let store;
+    let cookieService;
     let cookieName = 'ember_simple_auth-session-expiration_time';
     let expirationTime = 60 * 60 * 24;
+
     beforeEach(function() {
+      store = options.store(sinon, this.owner, {
+        cookieExpirationTime: expirationTime,
+      });
+      cookieService = store.get('_cookies');
       cookieService.write(cookieName, expirationTime);
-      store = createStore(cookieService);
     });
 
-    afterEach(function() {
-      cookieService.clear(cookieName);
-    });
-
-    it('restores expiration time from cookie', function() {
+    // eslint-disable-next-line require-await
+    it('restores expiration time from cookie', async function() {
       expect(store.get('cookieExpirationTime')).to.equal(expirationTime);
     });
   });

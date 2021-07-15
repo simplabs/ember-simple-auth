@@ -2,10 +2,14 @@ import { computed } from '@ember/object';
 import { inject as service } from '@ember/service';
 import { getOwner } from '@ember/application';
 import Base from 'ember-simple-auth/session-stores/base';
-import LocalStorage from 'ember-simple-auth/session-stores/local-storage';
-import Cookie from 'ember-simple-auth/session-stores/cookie';
 
 const LOCAL_STORAGE_TEST_KEY = '_ember_simple_auth_test_key';
+
+const injectStore = (store) => {
+  return computed(function() {
+    return getOwner(this).lookup(`session-store:${store}`);
+  });
+};
 
 const proxyToInternalStore = function() {
   return computed({
@@ -52,6 +56,8 @@ export default Base.extend({
     @public
   */
   localStorageKey: 'ember_simple_auth-session',
+
+  localStorage: injectStore('local-storage'),
 
   /**
     The domain to use for the cookie if `localStorage` is not available, e.g.,
@@ -102,7 +108,21 @@ export default Base.extend({
   _cookieExpirationTime: null,
   cookieExpirationTime: proxyToInternalStore(),
 
+  _sameSite: null,
+  sameSite: proxyToInternalStore(),
+
   _cookies: service('cookies'),
+  cookie: injectStore('cookie'),
+
+  _isLocalStorageAvailable: computed({
+    get() {
+      return testLocalStorageAvailable();
+    },
+
+    set(key, value) {
+      return value;
+    }
+  }),
 
   init() {
     this._super(...arguments);
@@ -112,28 +132,25 @@ export default Base.extend({
       this._fastboot = owner.lookup('service:fastboot');
     }
 
-    this._isLocalStorageAvailable = this.hasOwnProperty('_isLocalStorageAvailable') ? this._isLocalStorageAvailable : testLocalStorageAvailable();
-
     let store;
     if (this.get('_isLocalStorageAvailable')) {
+      store = this.get('localStorage');
       const options = { key: this.get('localStorageKey') };
       options._isFastBoot = false;
-      store = this._createStore(LocalStorage, options);
+      store.setProperties(options);
     } else {
-      const options = this.getProperties('cookieDomain', 'cookieName', 'cookieExpirationTime', 'cookiePath');
-      options._fastboot = this.get('_fastboot');
-      options._cookies = this.get('_cookies');
+      store = this.get('cookie');
+      const options = this.getProperties('sameSite', 'cookieDomain', 'cookieName', 'cookieExpirationTime', 'cookiePath');
 
-      store = this._createStore(Cookie, options);
+      store._initialize(options);
       this.set('cookieExpirationTime', store.get('cookieExpirationTime'));
     }
+
     this.set('_store', store);
+    this._setupStoreEvents(store);
   },
 
-  _createStore(storeType, options) {
-    let owner = getOwner(this);
-    const store = storeType.create(owner.ownerInjection(), options);
-
+  _setupStoreEvents(store) {
     store.on('sessionDataUpdated', (data) => {
       this.trigger('sessionDataUpdated', data);
     });

@@ -1,98 +1,104 @@
 import { run } from '@ember/runloop';
-import {
-  describe,
-  beforeEach,
-  afterEach,
-  it
-} from 'mocha';
+import { describe, it } from 'mocha';
 import { expect } from 'chai';
 import sinonjs from 'sinon';
-import Adaptive from 'ember-simple-auth/session-stores/adaptive';
-import LocalStorage from 'ember-simple-auth/session-stores/local-storage';
 import itBehavesLikeAStore from './shared/store-behavior';
 import itBehavesLikeACookieStore from './shared/cookie-store-behavior';
 import FakeCookieService from '../../helpers/fake-cookie-service';
 import createAdaptiveStore from '../../helpers/create-adaptive-store';
+import { setupTest } from 'ember-mocha';
 
 describe('AdaptiveStore', () => {
-  let sinon;
-  let store;
-
-  beforeEach(function() {
-    sinon = sinonjs.createSandbox();
-  });
-
-  afterEach(function() {
-    store.clear();
-    sinon.restore();
-  });
-
+  setupTest();
   describe('when localStorage is available', function() {
-    beforeEach(function() {
-      store = Adaptive.extend({
-        _createStore(storeType, options) {
-          return LocalStorage.create({ _isFastBoot: false }, options);
-        }
-      }).create({
-        _isLocalStorageAvailable: true
-      });
-    });
-
     itBehavesLikeAStore({
-      store() {
+      store(sinon, owner) {
+        let store;
+        let cookieService;
+        owner.register('service:cookies', FakeCookieService);
+        cookieService = owner.lookup('service:cookies');
+        sinon.spy(cookieService, 'read');
+        sinon.spy(cookieService, 'write');
+        store = createAdaptiveStore(cookieService, {
+          _isLocal: false,
+          _isLocalStorageAvailable: true,
+        }, owner);
         return store;
       }
     });
   });
 
   describe('when localStorage is not available', function() {
-    let cookieService;
-    beforeEach(function() {
-      cookieService = FakeCookieService.create();
-      sinon.spy(cookieService, 'read');
-      sinon.spy(cookieService, 'write');
-      store = createAdaptiveStore(cookieService, {
-        _isLocal: false,
-        _cookies: cookieService,
-      });
-    });
-
     itBehavesLikeAStore({
-      store() {
+      store(sinon, owner) {
+        let store;
+        let cookieService;
+        owner.register('service:cookies', FakeCookieService);
+        cookieService = owner.lookup('service:cookies');
+        sinon.spy(cookieService, 'read');
+        sinon.spy(cookieService, 'write');
+        store = createAdaptiveStore(cookieService, {
+          _isLocal: false,
+          _isLocalStorageAvailable: false,
+          _cookieName: 'test:session',
+        }, owner);
         return store;
       }
     });
+  });
 
-    itBehavesLikeACookieStore({
-      createStore(cookieService, options = {}) {
-        options._isLocalStorageAvailable = false;
-        return createAdaptiveStore(cookieService, options, {
-          _cookies: cookieService,
-          _fastboot: { isFastBoot: false },
-        });
-      },
-      renew(store, data) {
-        return store.get('_store')._renew(data);
-      },
-      sync(store) {
-        store.get('_store')._syncData();
-      },
-      spyRewriteCookieMethod(store) {
-        sinon.spy(store.get('_store'), 'rewriteCookie');
-        return store.get('_store').rewriteCookie;
-      }
+  describe('CookieStore', function() {
+    describe('Behaviour', function() {
+      itBehavesLikeACookieStore({
+        store(sinon, owner, storeOptions) {
+          owner.register('service:cookies', FakeCookieService);
+          let cookieService = owner.lookup('service:cookies');
+          sinon.spy(cookieService, 'read');
+          sinon.spy(cookieService, 'write');
+          let store = createAdaptiveStore(cookieService, Object.assign({
+            _isLocal: false,
+            _isLocalStorageAvailable: false,
+            _cookieName: 'test:session',
+          }, storeOptions), owner);
+          return store;
+        },
+        renew(store, data) {
+          return store.get('_store')._renew(data);
+        },
+        sync(store) {
+          store.get('_store')._syncData();
+        },
+        spyRewriteCookieMethod(sinon, store) {
+          sinon.spy(store.get('_store'), 'rewriteCookie');
+          return store.get('_store').rewriteCookie;
+        }
+      });
     });
 
-    it('persists to cookie when cookie attributes change', function() {
-      let now = new Date();
+    it('persists to cookie when cookie attributes change', async function() {
+      let sinon = sinonjs.createSandbox();
+      let store;
+      let cookieService;
+      let now;
 
+      this.owner.register('service:cookies', FakeCookieService);
+      cookieService = this.owner.lookup('service:cookies');
+      sinon.spy(cookieService, 'read');
+      sinon.spy(cookieService, 'write');
       run(() => {
-        store.persist({ key: 'value' });
+        now = new Date();
+        store = createAdaptiveStore(cookieService, {
+          _isLocal: false,
+          _isLocalStorageAvailable: false,
+          _cookieName: 'test:session',
+        }, this.owner);
+
         store.setProperties({
           cookieName:           'test:session',
           cookieExpirationTime: 60
         });
       });
+      await store.persist({ key: 'value' });
 
       expect(cookieService.write).to.have.been.calledWith(
         'test:session-expiration_time',

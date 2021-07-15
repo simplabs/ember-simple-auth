@@ -1,45 +1,60 @@
-import { describe, beforeEach } from 'mocha';
-import sinonjs from 'sinon';
+import { describe } from 'mocha';
 import itBehavesLikeAStore from './shared/store-behavior';
 import itBehavesLikeACookieStore from './shared/cookie-store-behavior';
 import FakeCookieService from '../../helpers/fake-cookie-service';
-import createCookieStore from '../../helpers/create-cookie-store';
+import CookieStore from 'ember-simple-auth/session-stores/cookie';
+import { setupTest } from 'ember-mocha';
 
 describe('CookieStore', () => {
-  let sinon;
-  let store;
+  setupTest();
 
-  beforeEach(function() {
-    sinon = sinonjs.createSandbox();
-    store = createCookieStore(FakeCookieService.create());
+  describe('StoreBehavior', function() {
+    itBehavesLikeAStore({
+      store(sinon, owner) {
+        let store;
+        let cookieService;
+        owner.register('service:cookies', FakeCookieService);
+        cookieService = owner.lookup('service:cookies');
+        sinon.spy(cookieService, 'read');
+        sinon.spy(cookieService, 'write');
+        owner.register('session-store:cookie', CookieStore.extend({
+          _cookieName: 'test-session',
+        }));
+        store = owner.lookup('session-store:cookie');
+        return store;
+      },
+      syncExternalChanges(store) {
+        store._syncData();
+      }
+    });
   });
 
-  afterEach(function() {
-    sinon.restore();
-  });
-
-  itBehavesLikeAStore({
-    store() {
-      return store;
-    },
-    syncExternalChanges() {
-      store._syncData();
-    }
-  });
-
-  itBehavesLikeACookieStore({
-    createStore(cookiesService, options = {}) {
-      return createCookieStore(cookiesService, options);
-    },
-    renew(store, data) {
-      return store._renew(data);
-    },
-    sync(store) {
-      store._syncData();
-    },
-    spyRewriteCookieMethod(store) {
-      sinon.spy(store, 'rewriteCookie');
-      return store.rewriteCookie;
-    }
+  describe('CookieStoreBehavior', function() {
+    itBehavesLikeACookieStore({
+      store(sinon, owner, storeOptions) {
+        owner.register('service:cookies', FakeCookieService);
+        let cookieService = owner.lookup('service:cookies');
+        sinon.spy(cookieService, 'read');
+        sinon.spy(cookieService, 'write');
+        owner.register('session-store:cookie', CookieStore.extend(Object.assign({
+          _cookieName: 'test:session',
+        }, storeOptions)));
+        let store = owner.lookup('session-store:cookie');
+        return store;
+      },
+      createStore(store) {
+        return store;
+      },
+      renew(store, data) {
+        return store._renew(data);
+      },
+      sync(store) {
+        store._syncData();
+      },
+      spyRewriteCookieMethod(sinon, store) {
+        sinon.spy(store, 'rewriteCookie');
+        return store.rewriteCookie;
+      }
+    });
   });
 });

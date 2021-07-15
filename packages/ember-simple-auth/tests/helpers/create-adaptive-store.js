@@ -1,25 +1,13 @@
 import Adaptive from 'ember-simple-auth/session-stores/adaptive';
-import createCookieStore from './create-cookie-store';
-import { merge, assign as emberAssign } from '@ember/polyfills';
-
-const assign = emberAssign || merge;
 
 export default function createAdaptiveStore(
   cookiesService,
   options = {},
-  props = {}
+  owner
 ) {
-  let cookieStore = createCookieStore(
-    cookiesService,
-    assign({}, options, { _isFastboot: false })
-  );
-  props._createStore = function() {
-    cookieStore.on('sessionDataUpdated', data => {
-      this.trigger('sessionDataUpdated', data);
-    });
+  owner.register('session-store:adaptive', Adaptive.extend(Object.assign({
+    _isLocalStorageAvailable: false,
+  }, options)));
 
-    return cookieStore;
-  };
-
-  return Adaptive.extend(props).create(options);
+  return owner.lookup('session-store:adaptive');
 }
