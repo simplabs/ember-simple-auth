@@ -316,6 +316,54 @@ to customize those behaviours, these methods can be overridden when the
 application defines its own session service that extends the one provided by
 Ember Simple Auth.
 
+You can create your own session service that extends SimpleAuthSessionService in order to customize the `handleAuthentication` method to
+redirect to a default route or possibly load the current user.
+```
+import SimpleAuthSessionService from 'ember-simple-auth/services/session';
+import { inject as service } from '@ember/service';
+
+export default class SessionService extends SimpleAuthSessionService {
+    /**
+     * Inject the router service
+     *
+     * @var {Service}
+     */
+    @service router;
+
+    /**
+     * Inject the current user service
+     *
+     * @var {Service}
+     */
+    @service currentUser;
+
+    /**
+     * Overwrite the handle authentication method
+     *
+     * @var {Service}
+     */
+    handleAuthentication() {
+        this.router.transitionTo('dashboard.boards');
+        this.loadCurrentUser();
+    }
+
+    /**
+     * Loads the current authenticated user
+     *
+     * @void
+     */
+    async loadCurrentUser() {
+        try {
+            const user = await this.currentUser.load();
+            return user;
+        } catch (err) {
+            await this.session.invalidate();
+        }
+    }
+}
+
+```
+
 To add authorization information to requests, you can use the session service
 to check if the session is authenticated and access
 authentication/authorization data, e.g. a token:
