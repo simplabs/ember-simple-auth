@@ -13,8 +13,10 @@ import itBehavesLikeAStore from './shared/store-behavior';
 import itBehavesLikeACookieStore from './shared/cookie-store-behavior';
 import FakeCookieService from '../../helpers/fake-cookie-service';
 import createAdaptiveStore from '../../helpers/create-adaptive-store';
+import {setupTest} from 'ember-mocha';
 
 describe('AdaptiveStore', () => {
+  setupTest();
   let sinon;
   let store;
 
@@ -28,18 +30,20 @@ describe('AdaptiveStore', () => {
   });
 
   describe('when localStorage is available', function() {
-    beforeEach(function() {
-      store = Adaptive.extend({
-        _createStore(storeType, options) {
-          return LocalStorage.create({ _isFastBoot: false }, options);
-        }
-      }).create({
-        _isLocalStorageAvailable: true
-      });
-    });
-
     itBehavesLikeAStore({
-      store() {
+      store(context) {
+        const AdaptiveStore = Adaptive.extend({
+          _createStore(storeType, options) {
+            context.owner.register('session:main', LocalStorage.extend({
+              _isFastBoot: false
+            }, options));
+            return context.owner.lookup('session:main');
+          },
+          _isLocalStorageAvailable: true,
+        });
+
+        context.owner.register('session-store:test', AdaptiveStore);
+        store = context.owner.lookup('session-store:test');
         return store;
       }
     });

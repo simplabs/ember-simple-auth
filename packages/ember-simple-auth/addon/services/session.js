@@ -137,8 +137,11 @@ export default Service.extend(Evented, {
   */
   attemptedTransition: alias('session.attemptedTransition'),
 
+  session: null,
+
   init() {
     this._super(...arguments);
+    this.set('session', getOwner(this).lookup('session:main'));
     this._forwardSessionEvents();
   },
 

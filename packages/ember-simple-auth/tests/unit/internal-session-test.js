@@ -20,11 +20,12 @@ describe('InternalSession', () => {
   beforeEach(function() {
     sinon = sinonjs.createSandbox();
 
-    store = EphemeralStore.create();
     authenticator = Authenticator.create();
     this.owner.register('authenticator:test', authenticator, { instantiate: false });
+    this.owner.register('session-store:test', EphemeralStore);
+    store = this.owner.lookup('session-store:test');
 
-    session = InternalSession.create({ store });
+    session = InternalSession.create(this.owner.ownerInjection());
     setOwner(session, this.owner);
   });
 
@@ -810,8 +811,7 @@ describe('InternalSession', () => {
   });
 
   it('does not share the content object between multiple instances', function() {
-    let session2 = InternalSession.create({ store });
-    setOwner(session2, this.owner);
+    let session2 = InternalSession.create(this.owner.ownerInjection());
 
     expect(session2.get('content')).to.not.equal(session.get('content'));
   });

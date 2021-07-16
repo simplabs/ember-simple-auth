@@ -8,12 +8,7 @@ export default function(options) {
 
   // eslint-disable-next-line mocha/no-top-level-hooks
   beforeEach(function() {
-    store = options.store();
-  });
-
-  // eslint-disable-next-line mocha/no-top-level-hooks
-  afterEach(function() {
-    store.clear();
+    store = options.store(this);
   });
 
   describe('#persist', function() {

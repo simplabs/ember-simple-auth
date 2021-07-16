@@ -1,3 +1,4 @@
+import Ember from 'ember';
 import RSVP from 'rsvp';
 import { isEmpty, isNone } from '@ember/utils';
 import ObjectProxy from '@ember/object/proxy';
@@ -16,6 +17,12 @@ export default ObjectProxy.extend(Evented, {
 
   init() {
     this._super(...arguments);
+    let storeFactory = 'session-store:application';
+    if (Ember.testing) {
+      storeFactory = 'session-store:test';
+    }
+
+    this.set('store', getOwner(this).lookup(storeFactory));
     this.set('content', { authenticated: {} });
     this._busy = false;
     this._bindToStoreEvents();

@@ -1,7 +1,6 @@
 import Ember from 'ember';
 import ObjectProxy from '@ember/object/proxy';
 import Service from '@ember/service';
-import { setOwner } from '@ember/application';
 import Evented from '@ember/object/evented';
 import { next } from '@ember/runloop';
 import EmberObject, { set } from '@ember/object';
@@ -22,20 +21,19 @@ describe('SessionService', () => {
 
   beforeEach(function() {
     sinon = sinonjs.createSandbox();
-    session = ObjectProxy.extend(Evented, {
+    this.owner.register('authorizer:custom', EmberObject.extend({
+      authorize() {}
+    }));
+    this.owner.register('session:main', ObjectProxy.extend(Evented, {
       init() {
         this._super(...arguments);
         this.content = {};
       }
-    }).create();
-
-    this.owner.register('authorizer:custom', EmberObject.extend({
-      authorize() {}
     }));
 
-    sessionService = Session.create({ session });
-    setOwner(sessionService, this.owner);
-    this.owner.register('service:session', sessionService, { instantiate: false });
+    session = this.owner.lookup('session:main');
+    this.owner.register('service:session', Session);
+    sessionService = this.owner.lookup('service:session');
   });
 
   afterEach(function() {

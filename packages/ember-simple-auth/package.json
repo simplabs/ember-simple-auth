@@ -50,7 +50,7 @@
     "ember-cli-sri": "^2.1.1",
     "ember-cli-uglify": "^3.0.0",
     "ember-cli-yuidoc": "^0.9.1",
-    "ember-data": "~3.18.0",
+    "ember-data": "~3.0.0",
     "ember-debug-handlers-polyfill": "^1.1.0",
     "ember-disable-prototype-extensions": "^1.1.3",
     "ember-export-application-global": "^2.0.1",
@@ -60,7 +60,7 @@
     "ember-mocha": "^0.16.2",
     "ember-resolver": "^8.0.0",
     "ember-sinon": "~5.0.0",
-    "ember-source": "~3.18.0",
+    "ember-source": "~3.0.0",
     "ember-source-channel-url": "^2.0.1",
     "ember-test-selectors": "^4.0.0",
     "ember-try": "^1.4.0",
@@ -75,7 +75,8 @@
     "marked": "^1.0.0",
     "mocha": "^7.0.1",
     "sinon-chai": "~3.5.0",
-    "torii": "^0.10.0"
+    "torii": "^0.10.0",
+    "bower": "^1.8.2"
   },
   "engines": {
     "node": ">= 12"

@@ -10,7 +10,6 @@ export default function(options) {
   // eslint-disable-next-line mocha/no-top-level-hooks
   beforeEach(function() {
     sinon = sinonjs.createSandbox();
-    store = options.store();
   });
 
   // eslint-disable-next-line mocha/no-top-level-hooks
@@ -30,12 +29,13 @@ export default function(options) {
     });
 
     it('binds to "storage" events on the window when created', function() {
-      store = options.store();
+      store = options.store(this);
 
       expect(window.addEventListener).to.have.been.calledOnce;
     });
 
     it('triggers the "sessionDataUpdated" event when the data in the browser storage has changed', function() {
+      store = options.store(this);
       let triggered = false;
       store.on('sessionDataUpdated', () => {
         triggered = true;
@@ -47,6 +47,7 @@ export default function(options) {
     });
 
     it('does not trigger the "sessionDataUpdated" event when the data in the browser storage has not changed', function() {
+      store = options.store(this);
       let triggered = false;
       store.on('sessionDataUpdated', () => {
         triggered = true;
@@ -59,6 +60,7 @@ export default function(options) {
     });
 
     it('does not trigger the "sessionDataUpdated" event when the data in the browser storage has changed for a different key', function() {
+      store = options.store(this);
       let triggered = false;
       store.on('sessionDataUpdated', () => {
         triggered = true;
@@ -70,6 +72,7 @@ export default function(options) {
     });
 
     it('unbinds from "storage" events on the window when destroyed', function() {
+      store = options.store(this);
       run(() => store.destroy());
 
       expect(window.removeEventListener).to.have.been.calledOnce;
